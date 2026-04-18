@@ -33,14 +33,21 @@ export default function VolunteerPortal() {
   }, []);
 
   useEffect(() => {
-    // Seed data if empty
-    const seedData = async () => {
-      const q = query(collection(db, 'needs'), where('status', '==', 'Open'));
-      const snap = await getDocs(q);
+    // Listen for open needs
+    const q = query(
+      collection(db, 'needs'), 
+      where('status', '==', 'Open'),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const unsub = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
       
-      if (snap.empty) {
-        const dummyTasks = [
+      if (docs.length === 0) {
+        // Provide rich fallback data so the portal is never empty
+        const fallbackTasks: Need[] = [
           {
+            id: 'mock-1',
             title: "Community Kitchen Service",
             description: "Help prepare and serve nutritious meals to community members in need. No experience required, just a willingness to help.",
             location: "Downtown Metro Center",
@@ -51,9 +58,10 @@ export default function VolunteerPortal() {
             ngoId: "demo-ngo-1",
             volunteerCount: 2,
             maxVolunteers: 10,
-            createdAt: serverTimestamp()
+            createdAt: new Date().toISOString()
           },
           {
+            id: 'mock-2',
             title: "Digital Literacy for Seniors",
             description: "Teach basic smartphone and computer skills to senior citizens. Help them stay connected with their families in the digital age.",
             location: "North District Library",
@@ -64,9 +72,10 @@ export default function VolunteerPortal() {
             ngoId: "demo-ngo-2",
             volunteerCount: 0,
             maxVolunteers: 5,
-            createdAt: serverTimestamp()
+            createdAt: new Date().toISOString()
           },
           {
+            id: 'mock-3',
             title: "Urban Park Clean-Up",
             description: "Join us for a morning of landscaping and restoration at Riverside Park. Tools and refreshments provided.",
             location: "East Riverside Park",
@@ -77,27 +86,13 @@ export default function VolunteerPortal() {
             ngoId: "demo-ngo-3",
             volunteerCount: 5,
             maxVolunteers: 20,
-            createdAt: serverTimestamp()
+            createdAt: new Date().toISOString()
           }
-        ];
-
-        for (const task of dummyTasks) {
-          await addDoc(collection(db, 'needs'), task);
-        }
+        ] as any as Need[];
+        setNeeds(fallbackTasks);
+      } else {
+        setNeeds(docs);
       }
-    };
-    seedData();
-
-    // We want all open needs for the volunteer to browse
-    const q = query(
-      collection(db, 'needs'), 
-      where('status', '==', 'Open'),
-      orderBy('createdAt', 'desc')
-    );
-    
-    const unsub = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
-      setNeeds(docs);
       setLoading(false);
     }, (err) => {
       console.error("Snapshot error:", err);
@@ -110,6 +105,11 @@ export default function VolunteerPortal() {
   const handleJoin = async (need: Need) => {
     if (need.volunteerCount >= need.maxVolunteers) return alert("This task is already filled!");
     
+    // Prevent errors when trying to write to dummy fallback data
+    if (need.id?.startsWith('mock-')) {
+      return alert("This is a sample task. Please sign in or ask your NGO administrator to broadcast real tasks to join them!");
+    }
+
     setJoiningId(need.id!);
     try {
       // 1. Create a match record

@@ -87,19 +87,27 @@ export default function AdminDashboard() {
 
       // 3. For each open need, run Gemini Matching
       for (const need of openNeeds.slice(0, 3)) {
-        const aiMatches = await geminiService.matchVolunteers(need, volunteers);
-        // Save unique matches to DB
-        for (const match of aiMatches) {
-          // Quick check to avoid duplicates for the same need/vol
-          const qExist = query(collection(db, 'matches'), where('needId', '==', need.id), where('volunteerId', '==', match.volunteerId));
-          const existSnap = await getDocs(qExist);
-          if (existSnap.empty) {
-            await addDoc(collection(db, 'matches'), {
-              ...match,
-              ngoId: need.ngoId,
-              matchDate: serverTimestamp(),
-              isAiSuggested: true
-            });
+        try {
+          const aiMatches = await geminiService.matchVolunteers(need, volunteers);
+          // Save unique matches to DB
+          for (const match of aiMatches) {
+            // Quick check to avoid duplicates for the same need/vol
+            const qExist = query(collection(db, 'matches'), where('needId', '==', need.id), where('volunteerId', '==', match.volunteerId));
+            const existSnap = await getDocs(qExist);
+            if (existSnap.empty) {
+              await addDoc(collection(db, 'matches'), {
+                ...match,
+                ngoId: need.ngoId,
+                matchDate: serverTimestamp(),
+                isAiSuggested: true
+              });
+            }
+          }
+        } catch (matchErr) {
+          console.warn("Skipping AI matching for need:", need.id, matchErr);
+          if (matchErr instanceof Error && matchErr.message.includes('GEMINI_API_KEY is not set')) {
+             alert('AI matching is currently disabled because the GEMINI_API_KEY is missing.');
+             break; // Stop trying if the key is missing entirely
           }
         }
       }
