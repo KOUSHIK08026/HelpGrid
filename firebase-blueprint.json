@@ -1,0 +1,68 @@
+{
+  "entities": {
+    "Need": {
+      "title": "Community Need",
+      "description": "A specific requirement posted by an NGO for volunteers.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "location": { "type": "string" },
+        "dateRequired": { "type": "string", "format": "date-time" },
+        "urgency": { "type": "string", "enum": ["Low", "Medium", "High"] },
+        "requiredSkills": { "type": "array", "items": { "type": "string" } },
+        "ngoId": { "type": "string" },
+        "status": { "type": "string", "enum": ["Open", "Filled", "Closed"] },
+        "volunteerCount": { "type": "integer" },
+        "maxVolunteers": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "location", "dateRequired", "urgency", "ngoId", "status"]
+    },
+    "Volunteer": {
+      "title": "Volunteer Profile",
+      "description": "Profile information for an individual volunteer.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "avatarUrl": { "type": "string" },
+        "skills": { "type": "array", "items": { "type": "string" } },
+        "availability": { "type": "array", "items": { "type": "string" } },
+        "bio": { "type": "string" },
+        "status": { "type": "string", "enum": ["Available", "Busy"] }
+      },
+      "required": ["name", "email", "status"]
+    },
+    "Match": {
+      "title": "Volunteer Match",
+      "description": "A record of a volunteer being matched to a specific need.",
+      "type": "object",
+      "properties": {
+        "volunteerId": { "type": "string" },
+        "volunteerName": { "type": "string" },
+        "ngoId": { "type": "string" },
+        "needId": { "type": "string" },
+        "needTitle": { "type": "string" },
+        "urgency": { "type": "string" },
+        "matchDate": { "type": "string", "format": "date-time" },
+        "confidenceScore": { "type": "number" }
+      },
+      "required": ["volunteerId", "ngoId", "needId", "matchDate"]
+    }
+  },
+  "firestore": {
+    "/needs/{needId}": {
+      "schema": "Need",
+      "description": "Collection of all community needs."
+    },
+    "/volunteers/{volunteerId}": {
+      "schema": "Volunteer",
+      "description": "Collection of volunteer profiles."
+    },
+    "/matches/{matchId}": {
+      "schema": "Match",
+      "description": "History of AI and manual matches."
+    }
+  }
+}

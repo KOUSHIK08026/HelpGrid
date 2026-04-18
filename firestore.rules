@@ -1,0 +1,109 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isAdmin() { return isVerified() && (request.auth.token.email == 'sarkarkoushik2006@gmail.com' || exists(/databases/$(database)/documents/admins/$(request.auth.uid))); }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // --- Validation Blueprints ---
+
+    function isValidNeed(data) {
+      return data.keys().hasAll(['title', 'description', 'location', 'dateRequired', 'urgency', 'ngoId', 'status', 'volunteerCount', 'maxVolunteers', 'createdAt'])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 100
+        && data.description is string && data.description.size() >= 1 && data.description.size() <= 1000
+        && data.location is string && data.location.size() >= 1 && data.location.size() <= 200
+        && data.dateRequired is string
+        && data.urgency in ['Low', 'Medium', 'High']
+        && data.ngoId is string && isValidId(data.ngoId)
+        && data.status in ['Open', 'Filled', 'Closed']
+        && data.volunteerCount is int && data.volunteerCount >= 0
+        && data.maxVolunteers is int && data.maxVolunteers > 0
+        && data.createdAt is timestamp;
+    }
+
+    function isValidVolunteer(data) {
+      return data.keys().hasAll(['name', 'email', 'status'])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 100
+        && data.email is string && data.email.size() <= 256
+        && data.status in ['Available', 'Busy'];
+    }
+
+    function isValidMatch(data) {
+      return data.keys().hasAll(['volunteerId', 'volunteerName', 'ngoId', 'needId', 'needTitle', 'urgency', 'matchDate', 'confidenceScore'])
+        && data.volunteerId is string && isValidId(data.volunteerId)
+        && data.ngoId is string && isValidId(data.ngoId)
+        && data.needId is string && isValidId(data.needId)
+        && data.matchDate is timestamp;
+    }
+
+    // --- Collection Matches ---
+
+    match /needs/{needId} {
+      allow get: if true;
+      allow list: if true; // Discovery is public
+      
+      allow create: if isVerified() 
+        && isValidNeed(incoming())
+        && (incoming().ngoId == request.auth.uid || isAdmin())
+        && incoming().createdAt == request.time
+        && incoming().volunteerCount == 0;
+        
+      allow update: if isVerified() 
+        && isValidNeed(incoming())
+        && (
+          isAdmin() ||
+          // Action: Manage (Owner only)
+          (incoming().ngoId == request.auth.uid && existing().ngoId == request.auth.uid
+           && incoming().createdAt == existing().createdAt
+           && incoming().diff(existing()).affectedKeys().hasAny(['title', 'description', 'location', 'dateRequired', 'urgency', 'status', 'maxVolunteers', 'requiredSkills']))
+          ||
+          // Action: Join (Anyone, increment volunteerCount)
+          (incoming().diff(existing()).affectedKeys().hasOnly(['volunteerCount', 'status'])
+           && incoming().volunteerCount == existing().volunteerCount + 1
+           && existing().volunteerCount <= existing().maxVolunteers
+           // Ensure it flips to Filled if maxed
+           && (incoming().volunteerCount == existing().maxVolunteers ? incoming().status == 'Filled' : incoming().status == existing().status))
+        );
+        
+      allow delete: if isVerified() && (existing().ngoId == request.auth.uid || isAdmin());
+    }
+
+    match /volunteers/{volunteerId} {
+      allow get: if isSignedIn(); // Only authenticated users see profiles
+      allow list: if isAdmin() || (isSignedIn() && resource.data.status == 'Available'); // Only search available unless admin
+      
+      allow create: if isVerified() 
+        && (volunteerId == request.auth.uid || isAdmin())
+        && isValidVolunteer(incoming());
+        
+      allow update: if isVerified()
+        && (volunteerId == request.auth.uid || isAdmin())
+        && isValidVolunteer(incoming())
+        && (isAdmin() || incoming().diff(existing()).affectedKeys().hasAny(['name', 'skills', 'availability', 'bio', 'status']));
+    }
+
+    match /matches/{matchId} {
+      allow read: if isAdmin() || (isVerified() 
+        && (resource.data.volunteerId == request.auth.uid 
+            || resource.data.ngoId == request.auth.uid));
+            
+      allow create: if isVerified() 
+        && isValidMatch(incoming())
+        && (isAdmin() || incoming().volunteerId == request.auth.uid 
+            || incoming().ngoId == request.auth.uid)
+        && incoming().matchDate == request.time;
+        
+      allow update, delete: if isAdmin(); // Matches are immutable for users, but admins can manage if needed
+    }
+  }
+}

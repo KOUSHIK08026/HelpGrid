@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+@theme {
+  --font-headline: "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Helvetica Neue", Arial, sans-serif;
+
+  --color-background: #fdfdfd;
+  --color-primary: #2563eb;
+  --color-primary-container: #1e40af;
+  --color-secondary: #64748b;
+  --color-secondary-container: #eff6ff;
+  --color-tertiary: #10b981;
+  --color-tertiary-container: #ecfdf5;
+  --color-error: #ef4444;
+  --color-on-background: #1e293b;
+  --color-on-surface: #1e293b;
+  --color-on-surface-variant: #64748b;
+  --color-outline: #94a3b8;
+  --color-outline-variant: #e2e8f0;
+
+  --color-surface: #ffffff;
+  --color-surface-bright: #ffffff;
+  --color-surface-dim: #f1f5f9;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f8fafc;
+  --color-surface-container: #f1f5f9;
+  --color-surface-container-high: #e2e8f0;
+  --color-surface-container-highest: #cbd5e1;
+
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+  --shadow-ambient: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+}
+
+@layer base {
+  body {
+    @apply bg-background text-on-surface font-body;
+    letter-spacing: -0.01em;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-headline font-bold tracking-tight;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-surface/90 border-b border-outline-variant;
+  }
+
+  .signature-gradient-bg {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-container));
+  }
+
+  .signature-gradient-text {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-container));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .ambient-shadow {
+    @apply border border-outline-variant;
+  }
+
+  /* No-border rule helper */
+  .no-border-card {
+    @apply bg-surface-container-lowest rounded-xl border border-outline-variant;
+  }
+
+  .nav-link-active {
+    @apply bg-secondary-container text-primary font-semibold;
+  }
+
+  .ai-badge {
+    @apply bg-tertiary-container text-tertiary px-2.5 py-1 rounded-full text-[11px] font-bold uppercase;
+  }
+}
